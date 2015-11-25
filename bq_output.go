@@ -141,6 +141,10 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 
 			var p pay
 			err = json.Unmarshal(payload, &p)
+			if err != nil {
+				logError(or, "Reading payload ", err)
+				continue
+			}
 
 			fullPath = fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
 
