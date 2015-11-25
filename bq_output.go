@@ -7,6 +7,7 @@ package hbq
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -84,7 +85,7 @@ func exists(tableName string, tables []string) bool {
 	return false
 }
 
-type payload struct {
+type pay struct {
 	ContainerName string `json:"container_name"`
 
 	// { "container_id":"foo",  "container_name":"foo", "hostname":"foo", "time":"foo", "output":"foo", "logger_type":"foo"}
@@ -105,8 +106,8 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 		ok = true
 	)
 
-	files := make(map[string]*os.File)
-	buffers := make(map[string]*bytes.Buffer)
+	files = make(map[string]*os.File)
+	buffers = make(map[string]*bytes.Buffer)
 	fileOp := os.O_CREATE | os.O_APPEND | os.O_WRONLY
 
 	// Channel that delivers the heka payloads
@@ -114,11 +115,6 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 
 	// Ensures that the directories are there before saving
 	mkDirectories(bqo.config.BufferPath)
-
-	// Initializes the current day table
-	if err = bqo.bu.CreateTable(bqo.tableName(oldDay), bqo.schema); err != nil {
-		logError(or, "Initialize Table", err)
-	}
 
 	encoder := or.Encoder()
 	for ok {
@@ -141,8 +137,8 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 				pack.Recycle(nil)
 			}
 
-			var p payload
-			err = json.Unmarsharl(payload, &p)
+			var p pay
+			err = json.Unmarshal(payload, &p)
 
 			if e := exists(p.ContainerName, tables); e == false {
 				tables = append(tables, p.ContainerName)
@@ -150,6 +146,9 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 				buffers[p.ContainerName] = bytes.NewBuffer(nil)
 				fullPath := fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
 				files[p.ContainerName] = os.OpenFile(fullPath, fileOp, 0666)
+				if err = bqo.bu.CreateTable(p.ContainerName, bqo.schema); err != nil {
+					logError(or, "Initialize Table", err)
+				}
 			}
 
 			// Write to both file and buffer
