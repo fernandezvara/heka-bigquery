@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/tommyvicananza/heka-bigquery/bq"
+	"github.com/fernandezvara/heka-bigquery/bq"
 	bigquery "google.golang.org/api/bigquery/v2"
 
 	. "github.com/mozilla-services/heka/pipeline"
@@ -76,7 +76,7 @@ func (bqo *BqOutput) Init(config interface{}) (err error) {
 	return
 }
 
-func exists(tableName string, tables []string) bool {
+func existsInSlice(tableName string, tables []string) bool {
 	for _, n := range tables {
 		if n == tableName {
 			return true
@@ -98,6 +98,8 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 		// Heka messages
 		pack    *PipelinePack
 		payload []byte
+
+		fullPath string
 
 		files   map[string]*os.File
 		buffers map[string]*bytes.Buffer
@@ -140,12 +142,15 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 			var p pay
 			err = json.Unmarshal(payload, &p)
 
-			if e := exists(p.ContainerName, tables); e == false {
+			if e := existsInSlice(p.ContainerName, tables); e == false {
 				tables = append(tables, p.ContainerName)
 				// Buffer that is used to store logs before uploading to bigquery
 				buffers[p.ContainerName] = bytes.NewBuffer(nil)
-				fullPath := fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
-				files[p.ContainerName] = os.OpenFile(fullPath, fileOp, 0666)
+				fullPath = fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
+				files[p.ContainerName], err = os.OpenFile(fullPath, fileOp, 0666)
+				if err != nil {
+					logError(or, "Creating file", err)
+				}
 				if err = bqo.bu.CreateTable(p.ContainerName, bqo.schema); err != nil {
 					logError(or, "Initialize Table", err)
 				}
@@ -163,7 +168,10 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 			if buffers[p.ContainerName].Len() > MaxBuffer {
 				files[p.ContainerName].Close() // Close file for uploading
 				bqo.UploadAndReset(buffers[p.ContainerName], fullPath, p.ContainerName, or)
-				files[p.ContainerName] = os.OpenFile(fullPath, fileOp, 0666)
+				files[p.ContainerName], err = os.OpenFile(fullPath, fileOp, 0666)
+				if err != nil {
+					logError(or, "Creating file", err)
+				}
 			}
 		}
 	}
