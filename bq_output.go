@@ -142,11 +142,13 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 			var p pay
 			err = json.Unmarshal(payload, &p)
 
+			fullPath = fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
+
 			if e := existsInSlice(p.ContainerName, tables); e == false {
 				tables = append(tables, p.ContainerName)
 				// Buffer that is used to store logs before uploading to bigquery
 				buffers[p.ContainerName] = bytes.NewBuffer(nil)
-				fullPath = fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
+				//fullPath = fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
 				files[p.ContainerName], err = os.OpenFile(fullPath, fileOp, 0666)
 				if err != nil {
 					logError(or, "Creating file", err)
