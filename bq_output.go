@@ -101,11 +101,11 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 
 		fullPath string
 
-		files    map[string]*os.File
-		buffers  map[string]*bytes.Buffer
-		tables   []string
-		hostname string
-		ok       = true
+		files   map[string]*os.File
+		buffers map[string]*bytes.Buffer
+		tables  []string
+
+		ok = true
 	)
 
 	files = make(map[string]*os.File)
