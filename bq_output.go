@@ -87,7 +87,7 @@ func existsInSlice(tableName string, tables []string) bool {
 
 type pay struct {
 	ContainerName string `json:"container_name"`
-
+	Hostname      string `json:"hostname"`
 	// { "container_id":"foo",  "container_name":"foo", "hostname":"foo", "time":"foo", "output":"foo", "logger_type":"foo"}
 }
 
@@ -101,11 +101,11 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 
 		fullPath string
 
-		files   map[string]*os.File
-		buffers map[string]*bytes.Buffer
-		tables  []string
-
-		ok = true
+		files    map[string]*os.File
+		buffers  map[string]*bytes.Buffer
+		tables   []string
+		hostname string
+		ok       = true
 	)
 
 	files = make(map[string]*os.File)
@@ -144,6 +144,10 @@ func (bqo *BqOutput) Run(or OutputRunner, h PluginHelper) (err error) {
 			if err != nil {
 				logError(or, "Reading payload ", err)
 				continue
+			}
+
+			if p.ContainerName == "" {
+				p.ContainerName = fmt.Sprintf("syslog_%s", p.Hostname)
 			}
 
 			fullPath = fmt.Sprintf("%s/%s", bqo.config.BufferPath, p.ContainerName)
